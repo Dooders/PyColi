@@ -4,11 +4,13 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 
+from typing import Literal
+
 # Default parameters
-GRID_SIZE_X = 100
-GRID_SIZE_Y = 100
-CONSUMPTION_RATE = 0.1
-PLACEMENT = 'center'  # or 'random'
+GRID_SIZE_X: int = 100
+GRID_SIZE_Y: int = 100
+CONSUMPTION_RATE: float = 0.1
+PLACEMENT: Literal['center', 'random']  = 'center'
 
 
 def initialize_grids(grid_size_x: int, grid_size_y: int) -> tuple:
