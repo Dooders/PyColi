@@ -1,6 +1,7 @@
 import argparse
 import random
 
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -152,8 +153,14 @@ def visualize_state(grid: np.ndarray, bacteria_positions: list, time_step: int) 
     plt.pause(0.1)
     plt.clf()
 
+    return plt.gcf()
 
-def simulate(grid_size_x: int, grid_size_y: int, consumption_rate: float, placement: str) -> None:
+
+def simulate(grid_size_x: int,
+             grid_size_y: int,
+             consumption_rate: float,
+             placement: str,
+             save_gif: bool = True) -> None:
     """ 
     Simulate the movement of bacteria in a grid.
 
@@ -175,6 +182,8 @@ def simulate(grid_size_x: int, grid_size_y: int, consumption_rate: float, placem
 
     nutrient_grid, repellent_grid = initialize_grids(grid_size_x, grid_size_y)
 
+    image_list = []
+
     # Main simulation loop
     for t in range(1000):
         new_positions = []
@@ -190,8 +199,8 @@ def simulate(grid_size_x: int, grid_size_y: int, consumption_rate: float, placem
             new_x, new_y = possible_moves[np.random.choice(range(4), p=bias)]
 
             # Apply boundary conditions
-            new_x = min(max(0, new_x), GRID_SIZE_X - 1)
-            new_y = min(max(0, new_y), GRID_SIZE_Y - 1)
+            new_x = min(max(0, new_x), grid_size_x - 1)
+            new_y = min(max(0, new_y), grid_size_y - 1)
             new_positions.append((new_x, new_y))
 
         # Update bacteria positions for the next iteration
@@ -199,10 +208,16 @@ def simulate(grid_size_x: int, grid_size_y: int, consumption_rate: float, placem
 
         # Visualize the simulation state every 10 time steps
         if t % 10 == 0:
-            visualize_state(nutrient_grid, bacteria_positions, t)
+            image = visualize_state(nutrient_grid, bacteria_positions, t)
+
+            if save_gif:
+                image_list.append(image)
 
     # Visualize the final state of the simulation
     visualize_state(nutrient_grid, bacteria_positions, 'Final State')
+
+    if save_gif:
+        imageio.mimsave('bacteria.gif', image_list, fps=10)
 
 
 if __name__ == '__main__':
@@ -217,10 +232,13 @@ if __name__ == '__main__':
                         default=CONSUMPTION_RATE, help='consumption rate')
     parser.add_argument('--placement', type=str,
                         default=PLACEMENT, help='placement option')
+    parser.add_argument('--save_gif', type=bool,
+                        default=False, help='save gif')
 
     args = parser.parse_args()
 
     simulate(args.grid_size_x,
              args.grid_size_y,
              args.consumption_rate,
-             args.placement)
+             args.placement,
+             args.save_gif)
