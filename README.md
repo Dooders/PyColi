@@ -15,3 +15,5 @@ To change the parameters of the simulation, update via the command line argument
 Example: `python3 main.py --grid_size_x 100 --grid_size_y 100 --consumption_rate 0.1 --placement center`
 
 The script will run the simulation and save the movement in a gif
+
+At some point I will try and see if I can visually replicate this video of E. coli in a nutrient soup: https://youtu.be/F6QMU3KD7zw?si=3CpUbphJo2pg7ATN
