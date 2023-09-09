@@ -169,7 +169,8 @@ def visualize_state(grid: np.ndarray, bacteria_positions: list, time_step: int) 
     return image_array
 
 
-def simulate(grid_size_x: int,
+def simulate(time_steps: int,
+             grid_size_x: int,
              grid_size_y: int,
              consumption_rate: float,
              placement: str) -> None:
@@ -197,7 +198,7 @@ def simulate(grid_size_x: int,
     image_list = []
 
     # Main simulation loop
-    for t in range(300):
+    for t in range(time_steps):
         new_positions = []
         for x, y in bacteria_positions:
             # Consume nutrient at current position
@@ -231,6 +232,8 @@ if __name__ == '__main__':
 
     # command line update defaults
     parser = argparse.ArgumentParser(description='Bacteria simulation')
+    parser.add_argument('--time_steps', type=int,
+                        default=500, help='number of time steps')
     parser.add_argument('--grid_size_x', type=int,
                         default=100, help='grid size x')
     parser.add_argument('--grid_size_y', type=int,
@@ -242,7 +245,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    simulate(args.grid_size_x,
+    simulate(args.time_steps,
+             args.grid_size_x,
              args.grid_size_y,
              args.consumption_rate,
              args.placement)
