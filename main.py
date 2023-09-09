@@ -1,17 +1,11 @@
 import argparse
+import io
 import random
+from typing import Literal
 
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-
-from typing import Literal
-
-# Default parameters
-GRID_SIZE_X: int = 100
-GRID_SIZE_Y: int = 100
-CONSUMPTION_RATE: float = 0.1
-PLACEMENT: Literal['center', 'random']  = 'center'
 
 
 def initialize_grids(grid_size_x: int, grid_size_y: int) -> tuple:
@@ -148,21 +142,37 @@ def visualize_state(grid: np.ndarray, bacteria_positions: list, time_step: int) 
         The current time step.
     """
     plt.imshow(grid, cmap='viridis')
+
     bacteria_x, bacteria_y = zip(*bacteria_positions)
+
     plt.scatter(bacteria_y, bacteria_x, c='red', label='Bacteria')
     plt.colorbar(label='Nutrient Concentration')
     plt.title(f'Time step {time_step}')
+
+    # Remove tick labels
+    plt.xticks([])
+    plt.yticks([])
+
     plt.pause(0.1)
+
+    # Save image to buffer
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+
+    # Read image from buffer
+    image_array = imageio.v2.imread(buf)
+
+    # Clear buffer and plot
     plt.clf()
 
-    return plt.gcf()
+    return image_array
 
 
 def simulate(grid_size_x: int,
              grid_size_y: int,
              consumption_rate: float,
-             placement: str,
-             save_gif: bool = True) -> None:
+             placement: str) -> None:
     """ 
     Simulate the movement of bacteria in a grid.
 
@@ -187,7 +197,7 @@ def simulate(grid_size_x: int,
     image_list = []
 
     # Main simulation loop
-    for t in range(1000):
+    for t in range(300):
         new_positions = []
         for x, y in bacteria_positions:
             # Consume nutrient at current position
@@ -212,14 +222,9 @@ def simulate(grid_size_x: int,
         if t % 10 == 0:
             image = visualize_state(nutrient_grid, bacteria_positions, t)
 
-            if save_gif:
-                image_list.append(image)
+            image_list.append(image)
 
-    # Visualize the final state of the simulation
-    visualize_state(nutrient_grid, bacteria_positions, 'Final State')
-
-    if save_gif:
-        imageio.mimsave('bacteria.gif', image_list, fps=10)
+    imageio.mimsave('bacteria.gif', image_list, fps=10)
 
 
 if __name__ == '__main__':
@@ -227,20 +232,17 @@ if __name__ == '__main__':
     # command line update defaults
     parser = argparse.ArgumentParser(description='Bacteria simulation')
     parser.add_argument('--grid_size_x', type=int,
-                        default=GRID_SIZE_X, help='grid size x')
+                        default=100, help='grid size x')
     parser.add_argument('--grid_size_y', type=int,
-                        default=GRID_SIZE_Y, help='grid size y')
+                        default=100, help='grid size y')
     parser.add_argument('--consumption_rate', type=float,
-                        default=CONSUMPTION_RATE, help='consumption rate')
+                        default=.1, help='consumption rate')
     parser.add_argument('--placement', type=str,
-                        default=PLACEMENT, help='placement option')
-    parser.add_argument('--save_gif', type=bool,
-                        default=False, help='save gif')
+                        default='center', help='placement option')
 
     args = parser.parse_args()
 
     simulate(args.grid_size_x,
              args.grid_size_y,
              args.consumption_rate,
-             args.placement,
-             args.save_gif)
+             args.placement)
