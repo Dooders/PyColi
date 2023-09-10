@@ -1,7 +1,6 @@
 import argparse
 import io
 import random
-from typing import Literal
 
 import imageio
 import matplotlib.pyplot as plt
@@ -91,9 +90,56 @@ def get_level(x: int, y: int, grid: np.ndarray) -> float:
         return 0
 
 
-def evaluate_moves(x: int, y: int, nutrient_grid: np.ndarray, repellent_grid: np.ndarray) -> tuple:
+def get_possible_moves(x: int, y: int) -> list:
     """
-    Evaluate possible moves based on current position and grids.
+    Get possible moves from current position.
+
+    Parameters
+    ----------
+    x : int
+        The horizontal position in the grid.
+    y : int
+        The vertical position in the grid.
+
+    Returns
+    -------
+    list
+        List containing the possible moves.
+    """
+    # Define possible moves: up, down, left, right
+    possible_moves = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+
+    return possible_moves
+
+
+def random_walk(x: int, y: int, *args, **kwargs) -> tuple:
+    """ 
+    Randomly select a move from the possible moves.
+
+    Parameters
+    ----------
+    x : int
+        The horizontal position in the grid.
+    y : int
+        The vertical position in the grid.
+
+    Returns
+    -------
+    tuple
+        Tuple containing the new position.
+    """
+    possible_moves = get_possible_moves(x, y)
+
+    return possible_moves[np.random.choice(range(4))]
+
+
+def biased_random_walk(x: int,
+                       y: int,
+                       nutrient_grid: np.ndarray,
+                       repellent_grid: np.ndarray) -> tuple:
+    """
+    Evaluate possible moves based on current position and grids and select a 
+    move based on the bias of nutrient and repellent levels.
 
     Parameters
     ----------
@@ -112,7 +158,7 @@ def evaluate_moves(x: int, y: int, nutrient_grid: np.ndarray, repellent_grid: np
         Tuple containing the possible moves and their respective biases.
     """
     # Define possible moves: up, down, left, right
-    possible_moves = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+    possible_moves = get_possible_moves(x, y)
 
     # Evaluate nutrient and repellent levels at possible moves
     possible_nutrient_levels = [
@@ -125,7 +171,45 @@ def evaluate_moves(x: int, y: int, nutrient_grid: np.ndarray, repellent_grid: np
         (1 + np.exp(possible_repellent_levels))
     bias /= np.sum(bias)
 
-    return possible_moves, bias
+    new_x, new_y = possible_moves[np.random.choice(range(4), p=bias)]
+
+    return new_x, new_y
+
+
+WALK_FUNCTIONS = {
+    'random_walk': random_walk,
+    'biased_random_walk': biased_random_walk,
+}
+
+
+def get_move(walk_function: str,
+             x: int,
+             y: int,
+             nutrient_grid: np.ndarray,
+             repellent_grid: np.ndarray) -> tuple:
+    """ 
+    Get the next move based on the walk function.
+
+    Parameters
+    ----------
+    walk_function : str
+        The walk function to use.
+    x : int
+        The horizontal position in the grid.
+    y : int
+        The vertical position in the grid.
+    nutrient_grid : np.ndarray
+        The nutrient grid.
+    repellent_grid : np.ndarray
+        The repellent grid.
+
+    Returns
+    -------
+    tuple
+        Tuple containing the new position.
+    """
+
+    return WALK_FUNCTIONS[walk_function](x, y, nutrient_grid, repellent_grid)
 
 
 def visualize_state(grid: np.ndarray, bacteria_positions: list, time_step: int) -> None:
@@ -173,6 +257,7 @@ def simulate(time_steps: int,
              grid_size_x: int,
              grid_size_y: int,
              consumption_rate: float,
+             move_function: str,
              placement: str) -> None:
     """ 
     Simulate the movement of bacteria in a grid.
@@ -185,6 +270,8 @@ def simulate(time_steps: int,
         The vertical size of the grid.
     consumption_rate : float
         The rate at which bacteria consume nutrient.
+    move_function : str
+        The move function to use
     placement : str
         The placement option for bacteria. The default is 'center'.
     """
@@ -206,10 +293,9 @@ def simulate(time_steps: int,
             nutrient_consumed = min(current_nutrient_level, consumption_rate)
             nutrient_grid[x, y] -= nutrient_consumed
 
-            # Decide on the next move based on the nutrient and repellent levels
-            possible_moves, bias = evaluate_moves(
-                x, y, nutrient_grid, repellent_grid)
-            new_x, new_y = possible_moves[np.random.choice(range(4), p=bias)]
+            # Get next move
+            new_x, new_y = get_move(
+                move_function, x, y, nutrient_grid, repellent_grid)
 
             # Apply boundary conditions
             new_x = min(max(0, new_x), grid_size_x - 1)
@@ -240,6 +326,8 @@ if __name__ == '__main__':
                         default=100, help='grid size y')
     parser.add_argument('--consumption_rate', type=float,
                         default=.1, help='consumption rate')
+    parser.add_argument('--move_function', type=str,
+                        default='biased_random_walk', help='move function')
     parser.add_argument('--placement', type=str,
                         default='center', help='placement option')
 
@@ -249,4 +337,5 @@ if __name__ == '__main__':
              args.grid_size_x,
              args.grid_size_y,
              args.consumption_rate,
+             args.move_function, 
              args.placement)
