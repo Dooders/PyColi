@@ -10,6 +10,7 @@ To change the parameters of the simulation, update via the command line argument
 
 * `--grid_size_x` and `--grid_size_y` to change the size of the grid
 * `--consumption_rate` to change the rate at which the bacteria consume the nutrient
+* `--move_function` to change the movement function of the bacteria. See Move section below
 * `--placement` to change the initial placement of the bacteria (random or center)
 
 Example: `python3 main.py --grid_size_x 100 --grid_size_y 100 --consumption_rate 0.1 --placement center`
@@ -17,3 +18,8 @@ Example: `python3 main.py --grid_size_x 100 --grid_size_y 100 --consumption_rate
 The script will run the simulation and save the movement in a gif
 
 At some point I will try and see if I can visually replicate this video of E. coli in a nutrient soup: https://youtu.be/F6QMU3KD7zw?si=3CpUbphJo2pg7ATN
+
+## Move Functions
+
+* `random_walk` - Randomly move in any direction
+* `biased_random_walk` - Randomly move in any direction, but with a bias towards higher nutrient concentrations
