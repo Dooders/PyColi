@@ -32,7 +32,7 @@ def initialize_grids(grid_size_x: int, grid_size_y: int) -> tuple:
     for x in range(grid_size_x):
         for y in range(grid_size_y):
             distance_to_center = np.sqrt((x - center_x)**2 + (y - center_y)**2)
-            nutrient_grid[x, y] = np.exp(-distance_to_center / 20.0)
+            nutrient_grid[x, y] = np.exp(-distance_to_center / 200.0)
             repellent_grid[x, y] = 1 - np.exp(-distance_to_center / 40.0)
 
     return nutrient_grid, repellent_grid
@@ -62,6 +62,12 @@ def initialize_bacteria(grid_size_x: int, grid_size_y: int, option='center') -> 
         x = random.randint(0, grid_size_x - 1)
         y = random.randint(0, grid_size_y - 1)
         return [(x, y)]
+    elif option == 'top_left':
+        x = int(grid_size_x * .30)
+        y = int(grid_size_y * .30)
+        return [(x, y)]
+    elif option == 'bottom_right':
+        return [(grid_size_x - 1, 0)]
     else:
         raise ValueError("Invalid option. Choose 'center' or 'random'.")
 
@@ -291,7 +297,7 @@ def simulate(time_steps: int,
             # Consume nutrient at current position
             current_nutrient_level = get_level(x, y, nutrient_grid)
             nutrient_consumed = min(current_nutrient_level, consumption_rate)
-            nutrient_grid[x, y] -= nutrient_consumed
+            # nutrient_grid[x, y] -= nutrient_consumed
 
             # Get next move
             new_x, new_y = get_move(
@@ -321,15 +327,15 @@ if __name__ == '__main__':
     parser.add_argument('--time_steps', type=int,
                         default=500, help='number of time steps')
     parser.add_argument('--grid_size_x', type=int,
-                        default=100, help='grid size x')
+                        default=10, help='grid size x')
     parser.add_argument('--grid_size_y', type=int,
-                        default=100, help='grid size y')
+                        default=10, help='grid size y')
     parser.add_argument('--consumption_rate', type=float,
                         default=.1, help='consumption rate')
     parser.add_argument('--move_function', type=str,
                         default='biased_random_walk', help='move function')
     parser.add_argument('--placement', type=str,
-                        default='center', help='placement option')
+                        default='top_left', help='placement option')
 
     args = parser.parse_args()
 
