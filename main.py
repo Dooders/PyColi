@@ -325,7 +325,7 @@ if __name__ == '__main__':
     # command line update defaults
     parser = argparse.ArgumentParser(description='Bacteria simulation')
     parser.add_argument('--time_steps', type=int,
-                        default=500, help='number of time steps')
+                        default=100, help='number of time steps')
     parser.add_argument('--grid_size_x', type=int,
                         default=10, help='grid size x')
     parser.add_argument('--grid_size_y', type=int,
