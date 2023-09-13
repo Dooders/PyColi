@@ -259,65 +259,81 @@ def visualize_state(grid: np.ndarray, bacteria_positions: list, time_step: int) 
     return image_array
 
 
-def simulate(time_steps: int,
-             grid_size_x: int,
-             grid_size_y: int,
-             consumption_rate: float,
-             move_function: str,
-             placement: str) -> None:
-    """ 
-    Simulate the movement of bacteria in a grid.
+class Simulation:
 
-    Parameters
-    ----------
-    grid_size_x : int
-        The horizontal size of the grid.
-    grid_size_y : int
-        The vertical size of the grid.
-    consumption_rate : float
-        The rate at which bacteria consume nutrient.
-    move_function : str
-        The move function to use
-    placement : str
-        The placement option for bacteria. The default is 'center'.
-    """
+    def __init__(self, time_steps: int,
+                 grid_size_x: int,
+                 grid_size_y: int,
+                 consumption_rate: float,
+                 move_function: str,
+                 placement: str):
 
-    # Initialize bacteria positions and nutrient/repellent grids
-    bacteria_positions = initialize_bacteria(
-        grid_size_x, grid_size_y, placement)  # or option='random'
+        self.time_steps = time_steps
+        self.grid_size_x = grid_size_x
+        self.grid_size_y = grid_size_y
+        self.consumption_rate = consumption_rate
+        self.move_function = move_function
+        self.placement = placement
 
-    nutrient_grid, repellent_grid = initialize_grids(grid_size_x, grid_size_y)
+        self.bacteria_positions = initialize_bacteria(
+            self.grid_size_x, self.grid_size_y, self.placement)
 
-    image_list = []
+        self.nutrient_grid, self.repellent_grid = initialize_grids(
+            self.grid_size_x, self.grid_size_y)
 
-    # Main simulation loop
-    for t in range(time_steps):
-        new_positions = []
+    def _simulate(self, t: int):
+        self.new_positions = []
         for x, y in bacteria_positions:
             # Consume nutrient at current position
-            current_nutrient_level = get_level(x, y, nutrient_grid)
-            nutrient_consumed = min(current_nutrient_level, consumption_rate)
+            current_nutrient_level = get_level(x, y, self.nutrient_grid)
+            # nutrient_consumed = min(
+            #     current_nutrient_level, self.consumption_rate)
             # nutrient_grid[x, y] -= nutrient_consumed
 
             # Get next move
             new_x, new_y = get_move(
-                move_function, x, y, nutrient_grid, repellent_grid)
+                self.move_function, x, y, self.nutrient_grid, self.repellent_grid)
 
             # Apply boundary conditions
-            new_x = min(max(0, new_x), grid_size_x - 1)
-            new_y = min(max(0, new_y), grid_size_y - 1)
-            new_positions.append((new_x, new_y))
+            new_x = min(max(0, new_x), self.grid_size_x - 1)
+            new_y = min(max(0, new_y), self.grid_size_y - 1)
+            self.new_positions.append((new_x, new_y))
 
         # Update bacteria positions for the next iteration
-        bacteria_positions = new_positions
+        bacteria_positions = self.new_positions
 
         # Visualize the simulation state every 10 time steps
         if t % 10 == 0:
-            image = visualize_state(nutrient_grid, bacteria_positions, t)
+            image = visualize_state(self.nutrient_grid, bacteria_positions, t)
 
-            image_list.append(image)
+            self.image_list.append(image)
 
-    imageio.mimsave('bacteria.gif', image_list, fps=10)
+    def simulate(self) -> None:
+        """ 
+        Simulate the movement of bacteria in a grid.
+
+        Parameters
+        ----------
+        grid_size_x : int
+            The horizontal size of the grid.
+        grid_size_y : int
+            The vertical size of the grid.
+        consumption_rate : float
+            The rate at which bacteria consume nutrient.
+        move_function : str
+            The move function to use
+        placement : str
+            The placement option for bacteria. The default is 'center'.
+        """
+
+        self.image_list = []
+
+        # Main simulation loop
+        for t in range(self.time_steps):
+            self._simulate(t)
+
+        # Save the results in a GIF
+        imageio.mimsave('bacteria.gif', self.image_list, fps=10)
 
 
 if __name__ == '__main__':
@@ -339,9 +355,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    simulate(args.time_steps,
-             args.grid_size_x,
-             args.grid_size_y,
-             args.consumption_rate,
-             args.move_function, 
-             args.placement)
+    simulation = Simulation(args.time_steps, args.grid_size_x, args.grid_size_y,
+                            args.consumption_rate, args.move_function, args.placement)
+
+    simulation.simulate()
