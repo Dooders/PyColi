@@ -32,8 +32,8 @@ def initialize_grids(grid_size_x: int, grid_size_y: int) -> tuple:
     for x in range(grid_size_x):
         for y in range(grid_size_y):
             distance_to_center = np.sqrt((x - center_x)**2 + (y - center_y)**2)
-            nutrient_grid[x, y] = np.exp(-distance_to_center / 200.0)
-            repellent_grid[x, y] = 1 - np.exp(-distance_to_center / 40.0)
+            nutrient_grid[x, y] = np.exp(-distance_to_center / 20.0)
+            repellent_grid[x, y] = 1 - np.exp(-distance_to_center / 20.0)
 
     return nutrient_grid, repellent_grid
 
@@ -63,8 +63,8 @@ def initialize_bacteria(grid_size_x: int, grid_size_y: int, option='center') -> 
         y = random.randint(0, grid_size_y - 1)
         return [(x, y)]
     elif option == 'top_left':
-        x = int(grid_size_x * .30)
-        y = int(grid_size_y * .30)
+        x = int(grid_size_x * .25)
+        y = int(grid_size_y * .25)
         return [(x, y)]
     elif option == 'bottom_right':
         return [(grid_size_x - 1, 0)]
@@ -283,7 +283,7 @@ class Simulation:
 
     def _simulate(self, t: int):
         self.new_positions = []
-        for x, y in bacteria_positions:
+        for x, y in self.bacteria_positions:
             # Consume nutrient at current position
             current_nutrient_level = get_level(x, y, self.nutrient_grid)
             # nutrient_consumed = min(
@@ -300,11 +300,12 @@ class Simulation:
             self.new_positions.append((new_x, new_y))
 
         # Update bacteria positions for the next iteration
-        bacteria_positions = self.new_positions
+        self.bacteria_positions = self.new_positions
 
         # Visualize the simulation state every 10 time steps
-        if t % 10 == 0:
-            image = visualize_state(self.nutrient_grid, bacteria_positions, t)
+        if t % 1 == 0:
+            image = visualize_state(
+                self.nutrient_grid, self.bacteria_positions, t)
 
             self.image_list.append(image)
 
@@ -343,9 +344,9 @@ if __name__ == '__main__':
     parser.add_argument('--time_steps', type=int,
                         default=100, help='number of time steps')
     parser.add_argument('--grid_size_x', type=int,
-                        default=10, help='grid size x')
+                        default=25, help='grid size x')
     parser.add_argument('--grid_size_y', type=int,
-                        default=10, help='grid size y')
+                        default=25, help='grid size y')
     parser.add_argument('--consumption_rate', type=float,
                         default=.1, help='consumption rate')
     parser.add_argument('--move_function', type=str,
