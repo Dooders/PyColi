@@ -10,7 +10,6 @@ To change the parameters of the simulation, update via the command line argument
 
 * `--time_steps` to change the number of simulation steps
 * `--grid_size_x` and `--grid_size_y` to change the size of the grid
-* `--consumption_rate` to change the rate at which the bacteria consume the nutrient
 * `--move_function` to change the movement function of the bacteria. See Move section below
 * `--placement` to change the initial placement of the bacteria (random or center)
 
@@ -24,3 +23,4 @@ At some point I will try and see if I can visually replicate this video of E. co
 
 * `random_walk` - Randomly move in any direction
 * `biased_random_walk` - Randomly move in any direction, but with a bias towards higher nutrient concentrations
+* `biased_random_walk_with_memory` - biased random walk with memory of the previous nutrient concentration and additional bias to higher concentrations
