@@ -113,7 +113,7 @@ def get_possible_moves(x: int, y: int) -> list:
         List containing the possible moves.
     """
     # Define possible moves: up, down, left, right
-    possible_moves = [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+    possible_moves = [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
 
     return possible_moves
 
@@ -259,6 +259,61 @@ def visualize_state(grid: np.ndarray, bacteria_positions: list, time_step: int) 
     return image_array
 
 
+class Bacteria:
+
+    def __init__(self, x: int, y: int):
+        self.x = x
+        self.y = y
+        self.previous_concentration = 0
+        
+    def move(self, simulation):
+
+        nearby_positions = self.nearby
+
+        # Evaluate nutrient and repellent levels at possible moves
+        nutrient_levels = [
+            get_level(x, y, simulation.nutrient_grid) for x, y in nearby_positions]
+        repellent_levels = [
+            get_level(x, y, simulation.repellent_grid) for x, y in nearby_positions]
+        
+        if simulation.move_function == 'biased_random_walk':
+            bias = np.exp(nutrient_levels) / (1 + np.exp(repellent_levels))
+            
+        elif simulation.move_function == 'biased_random_walk_with_memory':
+            # Adjust bias for cells with nutrient levels higher than previous level
+            memory_factor = np.array([2 if level > self.previous_concentration else 1 for level in nutrient_levels])
+            bias = np.exp(nutrient_levels) * memory_factor / (1 + np.exp(repellent_levels))
+            
+        else:
+            bias = np.ones(len(nearby_positions)) / len(nearby_positions)
+
+        bias /= np.sum(bias)
+        new_x, new_y = nearby_positions[np.random.choice(range(4), p=bias)]
+        
+        # Apply boundary conditions
+        new_x = min(max(0, new_x), simulation.grid_size_x - 1)
+        new_y = min(max(0, new_y), simulation.grid_size_y - 1)
+        
+        self.position = (new_x, new_y)
+        
+        self.previous_concentration = get_level(new_x, new_y, simulation.nutrient_grid)
+
+        return new_x, new_y
+
+    @property
+    def nearby(self):
+        return [(self.x-1, self.y), (self.x+1, self.y),
+                (self.x, self.y-1), (self.x, self.y+1)]
+        
+    @property
+    def position(self):
+        return (self.x, self.y)
+    
+    @position.setter
+    def position(self, new_position):
+        self.x, self.y = new_position
+
+
 class Simulation:
 
     def __init__(self, time_steps: int,
@@ -280,27 +335,22 @@ class Simulation:
 
         self.nutrient_grid, self.repellent_grid = initialize_grids(
             self.grid_size_x, self.grid_size_y)
+        
+        self._setup()
+        
+    def _setup(self):
+        self.bacteria = [Bacteria(x, y) for x, y in self.bacteria_positions]
 
     def _simulate(self, t: int):
-        self.new_positions = []
-        for x, y in self.bacteria_positions:
-            # Consume nutrient at current position
-            current_nutrient_level = get_level(x, y, self.nutrient_grid)
-            # nutrient_consumed = min(
-            #     current_nutrient_level, self.consumption_rate)
-            # nutrient_grid[x, y] -= nutrient_consumed
-
+        new_positions = []
+        for bacteria in self.bacteria:
             # Get next move
-            new_x, new_y = get_move(
-                self.move_function, x, y, self.nutrient_grid, self.repellent_grid)
+            new_x, new_y = bacteria.move(self)
 
-            # Apply boundary conditions
-            new_x = min(max(0, new_x), self.grid_size_x - 1)
-            new_y = min(max(0, new_y), self.grid_size_y - 1)
-            self.new_positions.append((new_x, new_y))
+            new_positions.append((new_x, new_y))
 
         # Update bacteria positions for the next iteration
-        self.bacteria_positions = self.new_positions
+        self.bacteria_positions = new_positions
 
         # Visualize the simulation state every 10 time steps
         if t % 1 == 0:
@@ -334,7 +384,10 @@ class Simulation:
             self._simulate(t)
 
         # Save the results in a GIF
-        imageio.mimsave('bacteria.gif', self.image_list, fps=10)
+        imageio.mimsave('bacteria.gif', self.image_list, fps=20)
+
+    def get_levels(self, bacteria: Bacteria, level_name: str):
+        return [get_level(x, y, getattr(self, f'{level_name}_grid')) for x, y in bacteria.nearby]
 
 
 if __name__ == '__main__':
@@ -350,7 +403,7 @@ if __name__ == '__main__':
     parser.add_argument('--consumption_rate', type=float,
                         default=.1, help='consumption rate')
     parser.add_argument('--move_function', type=str,
-                        default='biased_random_walk', help='move function')
+                        default='biased_random_walk_with_memory', help='move function')
     parser.add_argument('--placement', type=str,
                         default='top_left', help='placement option')
 
