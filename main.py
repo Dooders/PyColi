@@ -200,14 +200,12 @@ class Simulation:
     def __init__(self, time_steps: int,
                  grid_size_x: int,
                  grid_size_y: int,
-                 consumption_rate: float,
                  move_function: str,
                  placement: str):
 
         self.time_steps = time_steps
         self.grid_size_x = grid_size_x
         self.grid_size_y = grid_size_y
-        self.consumption_rate = consumption_rate
         self.move_function = move_function
         self.placement = placement
 
@@ -250,8 +248,6 @@ class Simulation:
             The horizontal size of the grid.
         grid_size_y : int
             The vertical size of the grid.
-        consumption_rate : float
-            The rate at which bacteria consume nutrient.
         move_function : str
             The move function to use
         placement : str
@@ -281,8 +277,6 @@ if __name__ == '__main__':
                         default=25, help='grid size x')
     parser.add_argument('--grid_size_y', type=int,
                         default=25, help='grid size y')
-    parser.add_argument('--consumption_rate', type=float,
-                        default=.1, help='consumption rate')
     parser.add_argument('--move_function', type=str,
                         default='biased_random_walk_with_memory', help='move function')
     parser.add_argument('--placement', type=str,
@@ -291,6 +285,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     simulation = Simulation(args.time_steps, args.grid_size_x, args.grid_size_y,
-                            args.consumption_rate, args.move_function, args.placement)
+                            args.move_function, args.placement)
 
     simulation.simulate()
