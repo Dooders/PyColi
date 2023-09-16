@@ -265,7 +265,7 @@ class Bacteria:
         self.x = x
         self.y = y
         self.previous_concentration = 0
-        
+
     def move(self, simulation):
 
         nearby_positions = self.nearby
@@ -275,28 +275,31 @@ class Bacteria:
             get_level(x, y, simulation.nutrient_grid) for x, y in nearby_positions]
         repellent_levels = [
             get_level(x, y, simulation.repellent_grid) for x, y in nearby_positions]
-        
+
         if simulation.move_function == 'biased_random_walk':
             bias = np.exp(nutrient_levels) / (1 + np.exp(repellent_levels))
-            
+
         elif simulation.move_function == 'biased_random_walk_with_memory':
             # Adjust bias for cells with nutrient levels higher than previous level
-            memory_factor = np.array([2 if level > self.previous_concentration else 1 for level in nutrient_levels])
-            bias = np.exp(nutrient_levels) * memory_factor / (1 + np.exp(repellent_levels))
-            
+            memory_factor = np.array(
+                [2 if level > self.previous_concentration else 1 for level in nutrient_levels])
+            bias = np.exp(nutrient_levels) * memory_factor / \
+                (1 + np.exp(repellent_levels))
+
         else:
             bias = np.ones(len(nearby_positions)) / len(nearby_positions)
 
         bias /= np.sum(bias)
         new_x, new_y = nearby_positions[np.random.choice(range(4), p=bias)]
-        
+
         # Apply boundary conditions
         new_x = min(max(0, new_x), simulation.grid_size_x - 1)
         new_y = min(max(0, new_y), simulation.grid_size_y - 1)
-        
+
         self.position = (new_x, new_y)
-        
-        self.previous_concentration = get_level(new_x, new_y, simulation.nutrient_grid)
+
+        self.previous_concentration = get_level(
+            new_x, new_y, simulation.nutrient_grid)
 
         return new_x, new_y
 
@@ -304,11 +307,11 @@ class Bacteria:
     def nearby(self):
         return [(self.x-1, self.y), (self.x+1, self.y),
                 (self.x, self.y-1), (self.x, self.y+1)]
-        
+
     @property
     def position(self):
         return (self.x, self.y)
-    
+
     @position.setter
     def position(self, new_position):
         self.x, self.y = new_position
@@ -335,9 +338,9 @@ class Simulation:
 
         self.nutrient_grid, self.repellent_grid = initialize_grids(
             self.grid_size_x, self.grid_size_y)
-        
+
         self._setup()
-        
+
     def _setup(self):
         self.bacteria = [Bacteria(x, y) for x, y in self.bacteria_positions]
 
