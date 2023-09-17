@@ -30,4 +30,4 @@ At some point I will try and see if I can visually replicate this video of E. co
 # Results
 
 ## Random Walk
-![](docs/random_walk.gif]
+![](docs/random_walk.gif)
