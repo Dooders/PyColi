@@ -28,3 +28,6 @@ At some point I will try and see if I can visually replicate this video of E. co
 * `biased_random_walk_with_memory` - biased random walk with memory of the previous nutrient concentration and additional bias to higher concentrations
 
 # Results
+
+## Random Walk
+![](docs/random_walk.gif]
