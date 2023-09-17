@@ -31,3 +31,9 @@ At some point I will try and see if I can visually replicate this video of E. co
 
 ## Random Walk
 ![](docs/random_walk.gif)
+
+## Biased Random Walk
+![](docs/biased_random_walk.gif)
+
+## Biased Random Walk with Memory
+![](docs/biased_random_walk_with_memory.gif)
