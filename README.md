@@ -1,5 +1,7 @@
 # PyColi
-Simple model of E. coli in a nutrient soup
+Simple model of E. coli in a nutrient soup.
+
+I cover the results of simulations in my substack article [Life Without a Brain](https://open.substack.com/pub/rememberization/p/life-without-a-brain?r=1pbu6n&utm_medium=ios&utm_campaign=post).  
 
 # Usage
 * Clone the repository
@@ -24,3 +26,5 @@ At some point I will try and see if I can visually replicate this video of E. co
 * `random_walk` - Randomly move in any direction
 * `biased_random_walk` - Randomly move in any direction, but with a bias towards higher nutrient concentrations
 * `biased_random_walk_with_memory` - biased random walk with memory of the previous nutrient concentration and additional bias to higher concentrations
+
+# Results
