@@ -5,8 +5,16 @@ let simulationRunning = false;
 function connectWebSocket() {
   socket = new WebSocket("ws://localhost:8000/ws/simulation");
 
-  // WebSocket event listener for receiving simulation data
+  socket.onopen = function (event) {
+    console.log("WebSocket connection established");
+  };
+
+  socket.onerror = function (error) {
+    console.error("WebSocket error:", error);
+  };
+
   socket.onmessage = function (event) {
+    console.log("Received data:", event.data);
     const data = JSON.parse(event.data);
 
     // Update E. coli position
@@ -32,7 +40,10 @@ document.body.appendChild(renderer.domElement);
 
 // Create a plane to represent the medium
 tempGeometry = new THREE.PlaneGeometry(200, 200);
-tempMaterial = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, side: THREE.DoubleSide });
+tempMaterial = new THREE.MeshBasicMaterial({
+  color: 0xaaaaaa,
+  side: THREE.DoubleSide,
+});
 const plane = new THREE.Mesh(tempGeometry, tempMaterial);
 scene.add(plane);
 
@@ -49,15 +60,21 @@ fieldCanvas.width = fieldSize;
 fieldCanvas.height = fieldSize;
 const fieldContext = fieldCanvas.getContext("2d");
 const fieldTexture = new THREE.CanvasTexture(fieldCanvas);
-const fieldMaterial = new THREE.MeshBasicMaterial({ map: fieldTexture, transparent: true });
-const fieldMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), fieldMaterial);
+const fieldMaterial = new THREE.MeshBasicMaterial({
+  map: fieldTexture,
+  transparent: true,
+});
+const fieldMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 200),
+  fieldMaterial
+);
 scene.add(fieldMesh);
 
 camera.position.z = 300;
 
 function animate() {
+  requestAnimationFrame(animate);
   if (simulationRunning) {
-    requestAnimationFrame(animate);
     renderer.render(scene, camera);
   }
 }
@@ -135,3 +152,6 @@ restartButton.onclick = function () {
   animate();
 };
 controlsDiv.appendChild(restartButton);
+
+// Call animate() to start the animation loop
+animate();

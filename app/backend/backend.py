@@ -1,8 +1,10 @@
+import asyncio
+import math
+import random
+
+import numpy as np
 from backend.ecoli import EColi, diffuse_and_decay
 from fastapi import FastAPI, WebSocket
-import numpy as np
-import random
-import math
 
 app = FastAPI()
 
@@ -21,10 +23,13 @@ toxin_field[50, 50] = 500
 # Initialize E. coli
 ecoli = EColi(position=[100, 100], sensing_range=5, medium_size=medium_size)
 
+
 def step_simulation():
     global nutrient_field, toxin_field, ecoli
 
-    nutrient_field = diffuse_and_decay(nutrient_field, diffusion_rate_nutrient, decay_rate_nutrient)
+    nutrient_field = diffuse_and_decay(
+        nutrient_field, diffusion_rate_nutrient, decay_rate_nutrient
+    )
     toxin_field = diffuse_and_decay(toxin_field, diffusion_rate_toxin, decay_rate_toxin)
     ecoli.run_and_tumble(nutrient_field, toxin_field)
     return {
@@ -33,6 +38,7 @@ def step_simulation():
         "toxin_field": toxin_field.tolist(),
     }
 
+
 @app.websocket("/ws/simulation")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -40,5 +46,6 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = step_simulation()
             await websocket.send_json(data)
+            await asyncio.sleep(0.1)  # Add a 100ms delay between updates
     except Exception as e:
         print(f"Connection closed: {e}")
