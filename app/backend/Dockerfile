@@ -9,7 +9,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the backend code
-COPY . .
+COPY backend.py .
+COPY ecoli.py .
 
 # Expose the port
 EXPOSE 8000

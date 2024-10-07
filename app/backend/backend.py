@@ -3,8 +3,8 @@ import math
 import random
 
 import numpy as np
-from backend.ecoli import EColi, diffuse_and_decay
-from fastapi import FastAPI, WebSocket
+from ecoli import EColi, diffuse_and_decay
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 app = FastAPI()
 
@@ -46,6 +46,6 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = step_simulation()
             await websocket.send_json(data)
-            await asyncio.sleep(0.1)  # Add a 100ms delay between updates
-    except Exception as e:
-        print(f"Connection closed: {e}")
+            await asyncio.sleep(0.1)  # Add a small delay between updates
+    except WebSocketDisconnect:
+        print("WebSocket disconnected")
