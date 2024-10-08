@@ -66,6 +66,17 @@ class EColi:
         # Update the previous concentrations for temporal sensing
         self.previous_nutrient = current_nutrient
         self.previous_toxin = current_toxin
+        
+    def get_state(self):
+        return {
+            "position": self.position.tolist(),
+            "direction_angle": self.direction_angle,
+            "run_duration": self.run_duration,
+            "steps_since_tumble": self.steps_since_tumble,
+            "previous_nutrient": self.previous_nutrient,
+            "previous_toxin": self.previous_toxin,
+            "methylation_level": self.methylation_level
+        }
 
 def diffuse_and_decay(field, diffusion_rate, decay_rate, dt=1.0):
     # Applying diffusion equation with decay
