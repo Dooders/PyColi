@@ -45,9 +45,13 @@ app.add_middleware(
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
+        i = 0
         while True:
             ecoli.run_and_tumble(nutrient_field, toxin_field)
-            await websocket.send_json({"message": ecoli.get_state()})
+            ecoli_state = ecoli.get_state()
+            ecoli_state["cycle"] = i
+            await websocket.send_json({"message": ecoli_state})
+            i += 1
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
     except Exception as e:

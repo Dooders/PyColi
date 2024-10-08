@@ -1,5 +1,3 @@
-console.log("app.js is loaded");
-
 let scene, camera, renderer;
 let simulationRunning = false;
 let socket;
@@ -69,7 +67,18 @@ function connectWebSocket() {
 
   socket.onmessage = function (event) {
     console.log("Received message:", event.data);
-    // We'll handle the data here later
+    const data = JSON.parse(event.data);
+
+    if (data.type === "simulation_update") {
+      // Update E. coli position
+      const ecoliMesh = scene.getObjectByName("ecoliMesh");
+      if (ecoliMesh) {
+        ecoliMesh.position.set(data.ecoli_x, data.ecoli_y, 0);
+      }
+
+      // Update nutrient and toxin fields
+      updateFields(data.nutrient_field, data.toxin_field);
+    }
   };
 
   socket.onerror = function (error) {
@@ -78,6 +87,7 @@ function connectWebSocket() {
 
   socket.onclose = function (event) {
     console.log("WebSocket connection closed:", event);
+    simulationRunning = false;
   };
 }
 
