@@ -1,12 +1,23 @@
 import asyncio
 import logging
 import os
+import time
+import uuid
 from typing import Any, Dict
 
 import numpy as np
 from ecoli import EColi
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import Counter, Histogram
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -28,7 +39,20 @@ logger = logging.getLogger(__name__)
 nutrient_field = np.zeros(MEDIUM_SIZE)
 toxin_field = np.zeros(MEDIUM_SIZE)
 
+# Metrics
+REQUESTS = Counter("http_requests_total", "Total HTTP Requests")
+WEBSOCKET_CONNECTIONS = Counter(
+    "websocket_connections_total", "Total WebSocket Connections"
+)
+SIMULATION_DURATION = Histogram(
+    "simulation_duration_seconds", "Simulation Duration in Seconds"
+)
+
 app = FastAPI()
+
+# Prometheus metrics
+Instrumentator().instrument(app).expose(app)
+
 ecoli = None
 simulation_running = False
 simulation_step = 0
@@ -44,8 +68,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+# Request ID middleware
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
 # Add middleware
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -105,6 +140,7 @@ async def get_client_simulation(websocket: WebSocket) -> Dict[str, Any]:
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket connection accepted")
+    WEBSOCKET_CONNECTIONS.inc()
 
     client_id = id(websocket)
     client_simulations[client_id] = {
@@ -157,6 +193,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 continue
 
             while simulation["simulation_running"]:
+                start_time = time.time()
+
                 ecoli = simulation["ecoli"]
                 nutrient_field = simulation["nutrient_field"]
                 toxin_field = simulation["toxin_field"]
@@ -192,6 +230,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 simulation["simulation_step"] += 1
                 await asyncio.sleep(0.1)
+
+                simulation_duration = time.time() - start_time
+                SIMULATION_DURATION.observe(simulation_duration)
 
                 # Check for new messages
                 try:
@@ -240,20 +281,35 @@ async def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/ready")
+async def readiness_check():
+    # Add any additional checks here (e.g., database connection)
+    return {"status": "ready"}
+
+
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Application shutting down")
-    # Perform any necessary cleanup here
+    # Implement graceful shutdown
+    for client_id, simulation in client_simulations.items():
+        simulation["simulation_running"] = False
+    await asyncio.sleep(5)  # Allow time for simulations to stop
+    # Perform any other necessary cleanup here
 
 
 if __name__ == "__main__":
     import uvicorn
+    from uvicorn.config import Config
 
     logger.info("Starting the application")
-    uvicorn.run(
+    config = Config(
         "app.main:app",
         host="0.0.0.0",
         port=int(os.getenv("PORT", "8000")),
         workers=int(os.getenv("WORKERS", "1")),
         log_config="logging.conf",
+        loop="uvloop",
+        http="httptools",
     )
+    server = uvicorn.Server(config)
+    server.run()
