@@ -2,3 +2,8 @@ fastapi
 uvicorn
 websockets
 numpy
+databases
+python-jose[cryptography]
+python-json-logger
+prometheus-client
+prometheus-fastapi-instrumentator
