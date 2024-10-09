@@ -28,6 +28,9 @@ ecoli = None
 simulation_running = False
 simulation_step = 0
 
+# Add a dictionary to store client-specific simulations
+client_simulations = {}
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -39,7 +42,6 @@ app.add_middleware(
 
 
 def initialize_fields():
-    global nutrient_field, toxin_field
     nutrient_field = np.zeros(medium_size)
     toxin_field = np.zeros(medium_size)
 
@@ -60,6 +62,8 @@ def initialize_fields():
     logger.info(f"Initial nutrient field sum: {np.sum(nutrient_field)}")
     logger.info(f"Initial toxin field sum: {np.sum(toxin_field)}")
 
+    return nutrient_field, toxin_field
+
 
 def diffuse_and_decay(field, diffusion_rate, decay_rate):
     new_field = field.copy()
@@ -78,9 +82,20 @@ def diffuse_and_decay(field, diffusion_rate, decay_rate):
 
 @app.websocket("/ws/simulation")
 async def websocket_endpoint(websocket: WebSocket):
-    global ecoli, nutrient_field, toxin_field, simulation_running, simulation_step
+    global client_simulations
     await websocket.accept()
     logger.info("WebSocket connection accepted")
+
+    # Generate a unique client ID
+    client_id = id(websocket)
+    client_simulations[client_id] = {
+        "ecoli": None,
+        "nutrient_field": None,
+        "toxin_field": None,
+        "simulation_running": False,
+        "simulation_step": 0,
+    }
+
     try:
         while True:
             message = await websocket.receive_json()
@@ -88,34 +103,44 @@ async def websocket_endpoint(websocket: WebSocket):
             logger.info(f"Received command: {command}")
 
             if command == "start":
-                simulation_running = True
-                if ecoli is None:
-                    ecoli = EColi(
+                client_simulations[client_id]["simulation_running"] = True
+                if client_simulations[client_id]["ecoli"] is None:
+                    client_simulations[client_id]["ecoli"] = EColi(
                         position=[100, 100], sensing_range=5, medium_size=medium_size
                     )
-                    initialize_fields()
-                logger.info("Simulation started")
+                    (
+                        client_simulations[client_id]["nutrient_field"],
+                        client_simulations[client_id]["toxin_field"],
+                    ) = initialize_fields()
+                logger.info(f"Simulation started for client {client_id}")
 
             elif command == "pause":
-                simulation_running = False
-                logger.info("Simulation paused")
+                client_simulations[client_id]["simulation_running"] = False
+                logger.info(f"Simulation paused for client {client_id}")
 
             elif command == "restart":
-                simulation_running = True
-                simulation_step = 0
-                ecoli = EColi(
+                client_simulations[client_id]["simulation_running"] = True
+                client_simulations[client_id]["simulation_step"] = 0
+                client_simulations[client_id]["ecoli"] = EColi(
                     position=[100, 100], sensing_range=5, medium_size=medium_size
                 )
-                initialize_fields()
-                logger.info("Simulation restarted")
+                (
+                    client_simulations[client_id]["nutrient_field"],
+                    client_simulations[client_id]["toxin_field"],
+                ) = initialize_fields()
+                logger.info(f"Simulation restarted for client {client_id}")
 
-            while simulation_running:
-                ecoli.run_and_tumble(nutrient_field, toxin_field)
+            while client_simulations[client_id]["simulation_running"]:
+                ecoli = client_simulations[client_id]["ecoli"]
+                nutrient_field = client_simulations[client_id]["nutrient_field"]
+                toxin_field = client_simulations[client_id]["toxin_field"]
                 ecoli_state = ecoli.get_state()
-                ecoli_state["cycle"] = simulation_step
+                ecoli_state["cycle"] = client_simulations[client_id]["simulation_step"]
 
                 # Add logging of E. coli state
-                logger.info(f"E. coli state (step {simulation_step}): {ecoli_state}")
+                logger.info(
+                    f"E. coli state (step {client_simulations[client_id]['simulation_step']}): {ecoli_state}"
+                )
 
                 nutrient_field = diffuse_and_decay(
                     nutrient_field, diffusion_rate_nutrient, decay_rate_nutrient
@@ -139,7 +164,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 await websocket.send_json(data_to_send)
 
-                simulation_step += 1
+                client_simulations[client_id]["simulation_step"] += 1
                 await asyncio.sleep(0.1)
 
                 # Check for new messages
@@ -149,32 +174,40 @@ async def websocket_endpoint(websocket: WebSocket):
                     )
                     command = message.get("command")
                     if command == "pause":
-                        simulation_running = False
-                        logger.info("Simulation paused")
+                        client_simulations[client_id]["simulation_running"] = False
+                        logger.info(f"Simulation paused for client {client_id}")
                         break
                     elif command == "restart":
-                        simulation_running = True
-                        simulation_step = 0
-                        ecoli = EColi(
+                        client_simulations[client_id]["simulation_running"] = True
+                        client_simulations[client_id]["simulation_step"] = 0
+                        client_simulations[client_id]["ecoli"] = EColi(
                             position=[100, 100],
                             sensing_range=5,
                             medium_size=medium_size,
                         )
-                        initialize_fields()
-                        logger.info("Simulation restarted")
+                        (
+                            client_simulations[client_id]["nutrient_field"],
+                            client_simulations[client_id]["toxin_field"],
+                        ) = initialize_fields()
+                        logger.info(f"Simulation restarted for client {client_id}")
                         break
                 except asyncio.TimeoutError:
                     pass  # No new message, continue simulation
 
-            if not simulation_running:
+            if not client_simulations[client_id]["simulation_running"]:
                 await asyncio.sleep(
                     0.1
                 )  # Add a small delay when not running to avoid busy-waiting
 
     except WebSocketDisconnect:
-        logger.info("WebSocket disconnected")
+        logger.info(f"WebSocket disconnected for client {client_id}")
     except Exception as e:
-        logger.error(f"Error in WebSocket connection: {str(e)}")
+        logger.error(f"Error in WebSocket connection for client {client_id}: {str(e)}")
+    finally:
+        # Clean up the client's simulation data when the connection is closed
+        if client_id in client_simulations:
+            del client_simulations[client_id]
+        logger.info(f"Cleaned up simulation data for client {client_id}")
 
 
 @app.get("/health")
