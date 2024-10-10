@@ -11,7 +11,7 @@ import numpy as np
 from ecoli import EColi
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import CollectorRegistry, Counter, Histogram, make_asgi_app
+from prometheus_client import CollectorRegistry, Counter, Histogram, make_asgi_app, Summary
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -38,6 +38,10 @@ toxin_field = np.zeros(MEDIUM_SIZE)
 metrics = None
 metrics_initialized = False
 metrics_lock = Lock()
+
+# Add these global variables
+SIMULATION_DURATION = Summary('simulation_duration_seconds', 'Time spent in simulation step')
+WEBSOCKET_CONNECTIONS = Counter('websocket_connections_total', 'Total WebSocket connections')
 
 
 def create_metrics():
@@ -169,8 +173,7 @@ async def get_client_simulation(websocket: WebSocket) -> Dict[str, Any]:
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket connection accepted")
-    metrics = create_metrics()  # Get the metrics
-    metrics["WEBSOCKET_CONNECTIONS"].inc()
+    WEBSOCKET_CONNECTIONS.inc()
 
     client_id = id(websocket)
     client_simulations[client_id] = {
@@ -185,7 +188,7 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             message = await websocket.receive_json()
             command = message.get("command")
-            logger.info(f"Received command: {command}")
+            logger.info(f"Received command: {command} from client {client_id}")
 
             simulation = await get_client_simulation(websocket)
 
@@ -218,7 +221,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 logger.info(f"Simulation restarted for client {client_id}")
 
             else:
-                logger.warning(f"Unknown command received: {command}")
+                logger.warning(f"Unknown command received: {command} from client {client_id}")
                 await websocket.send_json({"error": "Unknown command"})
                 continue
 
@@ -233,7 +236,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 # Add logging of E. coli state
                 logger.info(
-                    f"E. coli state (step {simulation['simulation_step']}): {ecoli_state}"
+                    f"E. coli state (step {simulation['simulation_step']}, client {client_id}): {ecoli_state}"
                 )
 
                 nutrient_field = diffuse_and_decay(
@@ -244,8 +247,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 )
 
                 # Add logging to check field values
-                logger.info(f"Nutrient field sum: {np.sum(nutrient_field)}")
-                logger.info(f"Toxin field sum: {np.sum(toxin_field)}")
+                logger.info(f"Nutrient field sum: {np.sum(nutrient_field)}, client {client_id}")
+                logger.info(f"Toxin field sum: {np.sum(toxin_field)}, client {client_id}")
 
                 data_to_send = {
                     "ecoli_state": ecoli_state,
@@ -254,7 +257,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 }
 
                 # Log the size of the data being sent
-                logger.info(f"Data size: {len(str(data_to_send))} bytes")
+                logger.info(f"Data size: {len(str(data_to_send))} bytes, client {client_id}")
 
                 await websocket.send_json(data_to_send)
 
@@ -262,7 +265,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 await asyncio.sleep(0.1)
 
                 simulation_duration = time.time() - start_time
-                metrics["SIMULATION_DURATION"].observe(simulation_duration)
+                SIMULATION_DURATION.observe(simulation_duration)
+                logger.info(f"Simulation step duration: {simulation_duration:.4f} seconds, client {client_id}")
 
                 # Check for new messages
                 try:
@@ -299,7 +303,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for client {client_id}")
     except Exception as e:
-        logger.exception(f"Error in WebSocket connection for client {client_id}")
+        logger.exception(f"Error in WebSocket connection for client {client_id}: {str(e)}")
     finally:
         if client_id in client_simulations:
             del client_simulations[client_id]
@@ -308,13 +312,32 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    # Add more detailed health checks here
+    return {
+        "status": "healthy",
+        "active_simulations": len(client_simulations),
+        "websocket_connections": WEBSOCKET_CONNECTIONS._value.get(),
+    }
 
 
 @app.get("/ready")
 async def readiness_check():
-    # Add any additional checks here (e.g., database connection)
-    return {"status": "ready"}
+    # Add more detailed readiness checks here
+    return {
+        "status": "ready",
+        "active_simulations": len(client_simulations),
+        "websocket_connections": WEBSOCKET_CONNECTIONS._value.get(),
+    }
+
+
+# Add a new endpoint for simulation statistics
+@app.get("/stats")
+async def simulation_stats():
+    return {
+        "active_simulations": len(client_simulations),
+        "websocket_connections": WEBSOCKET_CONNECTIONS._value.get(),
+        "avg_simulation_duration": SIMULATION_DURATION._sum.get() / SIMULATION_DURATION._count.get() if SIMULATION_DURATION._count.get() > 0 else 0,
+    }
 
 
 if __name__ == "__main__":
