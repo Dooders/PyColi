@@ -48,11 +48,6 @@ metrics = None
 metrics_initialized = False
 metrics_lock = Lock()
 
-# Add these global variables
-SIMULATION_DURATION = Summary('simulation_duration_seconds', 'Time spent in simulation step')
-WEBSOCKET_CONNECTIONS = Counter('websocket_connections_total', 'Total WebSocket connections')
-
-
 def create_metrics():
     global metrics, metrics_initialized
     with metrics_lock:
@@ -67,9 +62,9 @@ def create_metrics():
                     "Total WebSocket Connections",
                     registry=registry,
                 ),
-                "SIMULATION_DURATION": Histogram(
+                "SIMULATION_DURATION": Summary(
                     "simulation_duration_seconds",
-                    "Simulation Duration in Seconds",
+                    "Time spent in simulation step",
                     registry=registry,
                 ),
             }
@@ -182,7 +177,8 @@ async def get_client_simulation(websocket: WebSocket) -> Dict[str, Any]:
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket connection accepted")
-    WEBSOCKET_CONNECTIONS.inc()
+    metrics = create_metrics()
+    metrics["WEBSOCKET_CONNECTIONS"].inc()
 
     client_id = id(websocket)
     client_simulations[client_id] = {
@@ -274,7 +270,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await asyncio.sleep(0.1)
 
                 simulation_duration = time.time() - start_time
-                SIMULATION_DURATION.observe(simulation_duration)
+                metrics["SIMULATION_DURATION"].observe(simulation_duration)
                 logger.info(f"Simulation step duration: {simulation_duration:.4f} seconds, client {client_id}")
 
                 # Check for new messages
@@ -325,7 +321,7 @@ async def health_check():
     return {
         "status": "healthy",
         "active_simulations": len(client_simulations),
-        "websocket_connections": WEBSOCKET_CONNECTIONS._value.get(),
+        "websocket_connections": metrics["WEBSOCKET_CONNECTIONS"]._value.get(),
     }
 
 
@@ -335,17 +331,18 @@ async def readiness_check():
     return {
         "status": "ready",
         "active_simulations": len(client_simulations),
-        "websocket_connections": WEBSOCKET_CONNECTIONS._value.get(),
+        "websocket_connections": metrics["WEBSOCKET_CONNECTIONS"]._value.get(),
     }
 
 
 # Add a new endpoint for simulation statistics
 @app.get("/stats")
 async def simulation_stats():
+    metrics = create_metrics()
     return {
         "active_simulations": len(client_simulations),
-        "websocket_connections": WEBSOCKET_CONNECTIONS._value.get(),
-        "avg_simulation_duration": SIMULATION_DURATION._sum.get() / SIMULATION_DURATION._count.get() if SIMULATION_DURATION._count.get() > 0 else 0,
+        "websocket_connections": metrics["WEBSOCKET_CONNECTIONS"]._value.get(),
+        "avg_simulation_duration": metrics["SIMULATION_DURATION"]._sum.get() / metrics["SIMULATION_DURATION"]._count.get() if metrics["SIMULATION_DURATION"]._count.get() > 0 else 0,
     }
 
 
