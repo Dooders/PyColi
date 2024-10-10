@@ -16,7 +16,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Histogram, make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -50,7 +50,9 @@ SIMULATION_DURATION = Histogram(
 
 app = FastAPI()
 
-# Prometheus metrics
+# Add Prometheus metrics
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 Instrumentator().instrument(app).expose(app)
 
 ecoli = None

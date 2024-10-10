@@ -6,6 +6,10 @@ services:
       context: ./backend
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - PROMETHEUS_MULTIPROC_DIR=/tmp
 
   frontend:
     build:
@@ -14,3 +18,19 @@ services:
       - "8080:80"
     depends_on:
       - backend
+
+  prometheus:
+    image: prom/prometheus:v2.30.3
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+
+volumes:
+  prometheus_data:
