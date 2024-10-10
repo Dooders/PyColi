@@ -21,6 +21,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from contextlib import asynccontextmanager
 
 # Load configuration from environment variables
 MEDIUM_SIZE = tuple(map(int, os.getenv("MEDIUM_SIZE", "200,200").split(",")))
@@ -289,14 +290,13 @@ async def readiness_check():
     return {"status": "ready"}
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
     logger.info("Application shutting down")
-    # Implement graceful shutdown
-    for client_id, simulation in client_simulations.items():
-        simulation["simulation_running"] = False
-    await asyncio.sleep(5)  # Allow time for simulations to stop
-    # Perform any other necessary cleanup here
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 if __name__ == "__main__":
