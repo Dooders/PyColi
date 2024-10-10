@@ -3,6 +3,8 @@ uvicorn
 websockets
 numpy
 databases
+httptools
+uvloop
 python-jose[cryptography]
 python-json-logger
 prometheus-client

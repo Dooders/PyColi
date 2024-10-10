@@ -3,25 +3,17 @@ import logging
 import os
 import time
 import uuid
+from contextlib import asynccontextmanager
+from threading import Lock
 from typing import Any, Dict
 
 import numpy as np
 from ecoli import EColi
-from fastapi import (
-    Depends,
-    FastAPI,
-    HTTPException,
-    Request,
-    WebSocket,
-    WebSocketDisconnect,
-)
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import Counter, Histogram, make_asgi_app
+from prometheus_client import CollectorRegistry, Counter, Histogram, make_asgi_app
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
-from contextlib import asynccontextmanager
 
 # Load configuration from environment variables
 MEDIUM_SIZE = tuple(map(int, os.getenv("MEDIUM_SIZE", "200,200").split(",")))
@@ -33,28 +25,62 @@ DECAY_RATE_TOXIN = float(os.getenv("DECAY_RATE_TOXIN", "0.003"))
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 # Configure logging
-logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
+from logging import config as logging_config
+
+logging_config.fileConfig("logging.conf", disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 # Nutrient and Toxin Fields
 nutrient_field = np.zeros(MEDIUM_SIZE)
 toxin_field = np.zeros(MEDIUM_SIZE)
 
-# Metrics
-REQUESTS = Counter("http_requests_total", "Total HTTP Requests")
-WEBSOCKET_CONNECTIONS = Counter(
-    "websocket_connections_total", "Total WebSocket Connections"
-)
-SIMULATION_DURATION = Histogram(
-    "simulation_duration_seconds", "Simulation Duration in Seconds"
-)
+# Global variables for metrics
+metrics = None
+metrics_initialized = False
+metrics_lock = Lock()
 
-app = FastAPI()
+
+def create_metrics():
+    global metrics, metrics_initialized
+    with metrics_lock:
+        if not metrics_initialized:
+            registry = CollectorRegistry()
+            metrics = {
+                "REQUESTS": Counter(
+                    "http_requests_total", "Total HTTP Requests", registry=registry
+                ),
+                "WEBSOCKET_CONNECTIONS": Counter(
+                    "websocket_connections_total",
+                    "Total WebSocket Connections",
+                    registry=registry,
+                ),
+                "SIMULATION_DURATION": Histogram(
+                    "simulation_duration_seconds",
+                    "Simulation Duration in Seconds",
+                    registry=registry,
+                ),
+            }
+            metrics_initialized = True
+    return metrics
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize metrics here
+    create_metrics()
+    # Expose Prometheus metrics
+    instrumentator.expose(app)
+    yield
+    logger.info("Application shutting down")
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Add Prometheus metrics
-metrics_app = make_asgi_app()
+metrics_app = make_asgi_app(registry=CollectorRegistry())
 app.mount("/metrics", metrics_app)
-Instrumentator().instrument(app).expose(app)
+
+instrumentator = Instrumentator().instrument(app)
 
 ecoli = None
 simulation_running = False
@@ -143,7 +169,8 @@ async def get_client_simulation(websocket: WebSocket) -> Dict[str, Any]:
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket connection accepted")
-    WEBSOCKET_CONNECTIONS.inc()
+    metrics = create_metrics()  # Get the metrics
+    metrics["WEBSOCKET_CONNECTIONS"].inc()
 
     client_id = id(websocket)
     client_simulations[client_id] = {
@@ -235,7 +262,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await asyncio.sleep(0.1)
 
                 simulation_duration = time.time() - start_time
-                SIMULATION_DURATION.observe(simulation_duration)
+                metrics["SIMULATION_DURATION"].observe(simulation_duration)
 
                 # Check for new messages
                 try:
@@ -290,22 +317,13 @@ async def readiness_check():
     return {"status": "ready"}
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-    logger.info("Application shutting down")
-
-
-app = FastAPI(lifespan=lifespan)
-
-
 if __name__ == "__main__":
     import uvicorn
     from uvicorn.config import Config
 
     logger.info("Starting the application")
     config = Config(
-        "app.main:app",
+        "backend:app",
         host="0.0.0.0",
         port=int(os.getenv("PORT", "8000")),
         workers=int(os.getenv("WORKERS", "1")),

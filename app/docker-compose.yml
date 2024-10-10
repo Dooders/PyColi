@@ -10,6 +10,7 @@ services:
       - ./backend:/app
     environment:
       - PROMETHEUS_MULTIPROC_DIR=/tmp
+    command: python backend.py
 
   frontend:
     build:
