@@ -15,6 +15,9 @@ from prometheus_client import CollectorRegistry, Counter, Histogram, make_asgi_a
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# Add this import at the top of the file
+from pythonjsonlogger import jsonlogger
+
 # Load configuration from environment variables
 MEDIUM_SIZE = tuple(map(int, os.getenv("MEDIUM_SIZE", "200,200").split(",")))
 NUM_STEPS = int(os.getenv("NUM_STEPS", "1000"))
@@ -29,6 +32,12 @@ from logging import config as logging_config
 
 logging_config.fileConfig("logging.conf", disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
+
+# Add a custom JSON formatter to the root logger
+json_handler = logging.StreamHandler()
+json_formatter = jsonlogger.JsonFormatter('%(asctime)s %(name)s %(levelname)s %(message)s')
+json_handler.setFormatter(json_formatter)
+logging.getLogger().addHandler(json_handler)
 
 # Nutrient and Toxin Fields
 nutrient_field = np.zeros(MEDIUM_SIZE)
