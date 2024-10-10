@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the backend code
 COPY . .
+COPY filebeat.yml /usr/share/filebeat/filebeat.yml
 
 # Create logs directory
 RUN mkdir -p logs

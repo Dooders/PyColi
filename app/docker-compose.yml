@@ -66,6 +66,8 @@ services:
     volumes:
       - ./backend/logs:/app/logs:ro
       - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    command: filebeat -e -c /usr/share/filebeat/filebeat.yml
+    user: filebeat
     depends_on:
       - logstash
 
